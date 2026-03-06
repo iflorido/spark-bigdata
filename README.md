@@ -156,7 +156,8 @@ cd spark-bigdata
 conda activate modspark
 
 # Arrancar Jupyter
-jupyter notebook
+#jupyter notebook
+python -m notebook     # Para usar la instalación del entorno.
 ```
 
 Abre `notebooks/01_exploracion_inicial.ipynb` para ver el análisis exploratorio del dataset.
