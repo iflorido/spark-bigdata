@@ -58,7 +58,12 @@ spark-bigdata/
 │   │   │   └── identity/               # Parquet Bronze - identidad
 │   │   └── silver/
 │   │       └── transactions_enriched/  # Parquet Silver - join enriquecido
-│   └── aggregated/                     # Gold: métricas finales (pendiente)
+│   └── aggregated/
+│       └── gold/                       # Parquet Gold - métricas de negocio
+│           ├── fraud_by_hour/
+│           ├── fraud_by_card/
+│           ├── fraud_by_product/
+│           └── fraud_by_month/
 │
 ├── src/
 │   ├── __init__.py
@@ -66,7 +71,8 @@ spark-bigdata/
 │   │   └── bronze_loader.py            # Carga CSV → Parquet Bronze
 │   ├── etl/
 │   │   └── silver_transformer.py       # Transformaciones + join → Silver
-│   └── sql/                            # Queries Spark SQL analíticas (pendiente)
+│   └── sql/
+│       └── gold_metrics.py             # Métricas de negocio con Spark SQL
 │
 ├── notebooks/
 │   └── 01_exploracion_inicial.ipynb
@@ -153,7 +159,7 @@ python -c "import pyspark; print(pyspark.__version__)"
 
 ---
 
-## 🚀 Inicio rápido
+## 🚀 Ejecución del pipeline completo
 
 ```bash
 # Clonar el repositorio
@@ -163,11 +169,18 @@ cd spark-bigdata
 # Activar entorno
 conda activate modspark
 
-# Arrancar Jupyter
-python -m notebook     # Usa la instalación del entorno conda
-```
+# 1. Bronze: ingestar CSV → Parquet
+python src/ingestion/bronze_loader.py
 
-Abre `notebooks/01_exploracion_inicial.ipynb` para ver el análisis exploratorio del dataset.
+# 2. Silver: limpiar, transformar y enriquecer
+python src/etl/silver_transformer.py
+
+# 3. Gold: calcular métricas de negocio
+python src/sql/gold_metrics.py
+
+# Exploración interactiva
+python -m notebook
+```
 
 ---
 
@@ -265,6 +278,76 @@ python src/etl/silver_transformer.py
 
 ---
 
+## 🥇 Gold Layer — `src/sql/gold_metrics.py`
+
+**Responsabilidad**: calcular métricas de negocio sobre los datos Silver usando Spark SQL puro.
+
+El DataFrame Silver se registra como vista temporal SQL (`createOrReplaceTempView`) y se lanzan queries analíticas sobre 590k transacciones.
+
+**Ejecución:**
+```bash
+python src/sql/gold_metrics.py
+```
+
+---
+
+### Métrica 1 — Fraude por hora del día
+
+| Hora | Transacciones | Fraudes | % Fraude |
+|---|---|---|---|
+| 08h | 2.869 | 330 | **11.50%** |
+| 07h | 4.287 | 407 | **9.49%** |
+| 06h | 6.857 | 558 | **8.14%** |
+| 13h | 17.665 | 426 | 2.41% |
+| 15h | 32.676 | 795 | 2.43% |
+
+> 💡 El fraude se concentra en las horas de madrugada (6-9h), cuando el tráfico es bajo y los usuarios no monitorizan sus cuentas. Es un patrón real conocido en banca.
+
+---
+
+### Métrica 2 — Fraude por tipo de tarjeta
+
+| Red | Tipo | Transacciones | % Fraude | Importe medio fraude |
+|---|---|---|---|---|
+| discover | credit | 6.304 | **7.93%** | 354 $ |
+| mastercard | credit | 50.772 | **6.92%** | 136 $ |
+| visa | credit | 83.732 | **6.81%** | 168 $ |
+| visa | debit | 301.023 | 2.55% | 135 $ |
+| mastercard | debit | 138.415 | 2.16% | 127 $ |
+
+> 💡 Las tarjetas de crédito tienen el triple de fraude que las de débito. Discover credit lidera con el importe medio de fraude más alto (354$).
+
+---
+
+### Métrica 3 — Fraude por categoría de producto
+
+| Producto | Transacciones | % Fraude | Importe medio |
+|---|---|---|---|
+| C | 68.519 | **11.69%** | 43 $ |
+| S | 11.628 | 5.90% | 60 $ |
+| H | 33.024 | 4.77% | 73 $ |
+| R | 37.699 | 3.78% | 168 $ |
+| W | 439.670 | 2.04% | 153 $ |
+
+> 💡 El producto C (micropagos) tiene el mayor % de fraude pero el importe más bajo — patrón típico de fraude de prueba: los defraudadores hacen pequeñas transacciones para verificar que la tarjeta funciona antes de hacer cargos grandes.
+
+---
+
+### Métrica 4 — Evolución mensual del fraude
+
+| Mes | Transacciones | % Fraude | Volumen total |
+|---|---|---|---|
+| Enero | 92.585 | 4.00% | 12.6 M$ |
+| Febrero | 86.021 | 4.01% | 11.9 M$ |
+| Marzo | 101.453 | 3.96% | 14.1 M$ |
+| Abril | 83.636 | 3.38% | 11.2 M$ |
+| Mayo | 89.349 | 3.48% | 12.2 M$ |
+| Diciembre | 137.321 | 2.59% | 17.6 M$ |
+
+> 💡 Diciembre tiene el mayor volumen (campaña navideña) pero menor % de fraude — posiblemente por mayor vigilancia bancaria en esas fechas. Junio solo tiene 175 transacciones: el dataset está truncado en ese mes.
+
+---
+
 ## 🗺️ Roadmap
 
 - [x] Configuración del entorno (Java 11, PySpark 3.5.1)
@@ -272,9 +355,9 @@ python src/etl/silver_transformer.py
 - [x] Análisis exploratorio inicial (schema, nulos, estadísticas, distribución de fraude)
 - [x] Bronze Layer — ingesta CSV → Parquet con metadatos de auditoría
 - [x] Silver Layer — limpieza, transformación de fechas y join enriched
-- [ ] Gold Layer — métricas de negocio con Spark SQL
+- [x] Gold Layer — 4 métricas de negocio con Spark SQL
+- [ ] Notebook de visualización de resultados (gráficas)
 - [ ] Orquestación con Apache Airflow
-- [ ] Notebook de visualización de resultados
 
 ---
 
