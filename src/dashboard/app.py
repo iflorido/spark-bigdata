@@ -69,7 +69,7 @@ fig_hora.update_traces(marker_line_width=0)
 # --- Gráfica 2: Fraude por tarjeta ---
 df_tarjeta_f = df_tarjeta[df_tarjeta["total_transacciones"] > 100].copy()
 df_tarjeta_f["etiqueta"] = df_tarjeta_f["red_tarjeta"].str.title() + "  ·  " + df_tarjeta_f["tipo_tarjeta"].str.title()
-df_tarjeta_f = df_tarjeta_f.sort_values("pct_fraude", ascending=True)
+df_tarjeta_f = df_tarjeta_f.sort_values("pct_fraude", ascending=True).reset_index(drop=True)  # ← añadir esto
 
 fig_tarjeta = px.bar(
     df_tarjeta_f,
@@ -79,8 +79,9 @@ fig_tarjeta = px.bar(
     color="pct_fraude",
     color_continuous_scale=[[0, BLUE_DARK], [0.5, BLUE], [1, RED]],
     labels={"pct_fraude": "% Fraude", "etiqueta": ""},
-    text=df_tarjeta_f["pct_fraude"].apply(lambda x: f"{x}%"),
+    text=[f"{x}%" for x in df_tarjeta_f["pct_fraude"]],  # ← también cambiar a lista
 )
+
 fig_tarjeta.update_layout(
     **PLOTLY_LAYOUT,
     title="% Fraude por tipo de tarjeta",
