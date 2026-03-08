@@ -45,7 +45,7 @@ def compute_gold_metrics(spark: SparkSession, output_base: str):
         ORDER BY transaction_hour
     """)
     df_hora.show(24)
-    df_hora.write.mode("overwrite").parquet(f"{output_base}/gold/metrics/fraude_por_hora")
+    df_hora.write.mode("overwrite").parquet(f"{output_base}/fraude_por_hora")
     logger.info("Métrica 1 guardada en la capa Gold: fraude por hora del día")
     
     # Metrica 2: Tasa de fraude por tipo de trajeta de credito, creamos la consulta SQL para calcular la tasa de fraude por tipo de tarjeta de crédito, incluyendo el número total de transacciones, el número de fraudes y el importe medio por tipo de tarjeta.
@@ -65,7 +65,7 @@ def compute_gold_metrics(spark: SparkSession, output_base: str):
         ORDER BY pct_fraude DESC
     """)
     df_tarjeta.show()
-    df_tarjeta.write.mode("overwrite").parquet(f"{output_base}/gold/metrics/fraude_por_tipo_tarjeta")
+    df_tarjeta.write.mode("overwrite").parquet(f"{output_base}/fraude_por_tipo_tarjeta")
     logger.info("Métrica 2 guardada en la capa Gold: fraude por tipo de tarjeta de crédito")
     
     # Metrica 3: Tasa de frauder por categoria de producto, creamos la consulta SQL para calcular la tasa de fraude por categoría de producto, incluyendo el número total de transacciones, el número de fraudes y el importe medio por categoría de producto.
@@ -82,31 +82,35 @@ def compute_gold_metrics(spark: SparkSession, output_base: str):
         "ORDER BY pct_fraude DESC"
     )
     df_producto.show()
-    df_producto.write.mode("overwrite").parquet(f"{output_base}/gold/metrics/fraude_por_categoria_producto")
+    df_producto.write.mode("overwrite").parquet(f"{output_base}/fraude_por_categoria_producto")
     logger.info("Métrica 3 guardada en la capa Gold: fraude por categoría de producto")
     
     # Metrica 4 : Evolución mensual de fraudes, Intentamos calcular la evolución mensual de fraudes, incluyendo el número total de transacciones, el número de fraudes y el importe medio por mes.
     logger.info("Calculando métrica 4: evolución mensual de fraudes")
     df_mensual = spark.sql("""
         SELECT
-            transaction_month,
+            YEAR(transaction_date) AS anio,
+            MONTH(transaction_date) AS mes,
+            CONCAT(YEAR(transaction_date), '-', LPAD(MONTH(transaction_date), 2, '0')) AS periodo,
             COUNT(*) AS total_transacciones,
             SUM(isFraud) AS total_fraudes,
             ROUND(SUM(isFraud) * 100.0 / COUNT(*), 2) AS pct_fraude,
             ROUND(SUM(TransactionAmt), 2) AS volumen_total,
             ROUND(SUM(CASE WHEN isFraud = 1 THEN TransactionAmt ELSE 0 END), 2) AS volumen_fraude
-            FROM transactions GROUP BY transaction_month
-            ORDER BY transaction_month
+        FROM transactions
+        WHERE NOT (YEAR(transaction_date) = 2018 AND MONTH(transaction_date) = 6)
+        GROUP BY YEAR(transaction_date), MONTH(transaction_date)
+        ORDER BY anio, mes
     """)
     df_mensual.show()
-    df_mensual.write.mode("overwrite").parquet(f"{output_base}/gold/metrics/evolucion_mensual_fraudes")
+    df_mensual.write.mode("overwrite").parquet(f"{output_base}/evolucion_mensual_fraudes")
     logger.info("Métrica 4 guardada en la capa Gold: evolución mensual de fraudes")
     
 if __name__ == "__main__":
     spark = create_spark_session("FinancialPipeline-Gold")
 
     silver_path = str(PROJECT_ROOT / "data/processed/silver/transactions_enriched")
-    output_base = str(PROJECT_ROOT / "data/aggregated/gold")
+    output_base = str(PROJECT_ROOT / "data/aggregated/gold/metrics")
 
     register_silver_views(spark, silver_path)
     compute_gold_metrics(spark, output_base)
