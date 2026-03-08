@@ -242,17 +242,129 @@ app.layout = html.Div([
         ]),
 
         # Footer
+        # Bloque técnico
         html.Div([
-            html.Span("Desarrollado por ", style={"color": TEXT_MUTED, "fontSize": "0.8rem"}),
-            html.A("automaworks.es", href="https://automaworks.es", target="_blank", style={
-                "color": BLUE, "fontSize": "0.8rem", "textDecoration": "none"
+
+            html.Hr(style={"borderColor": BORDER, "marginBottom": "28px"}),
+
+            html.H5("📌 Sobre este proyecto", style={
+                "color": TEXT_MAIN, "fontWeight": "700",
+                "marginBottom": "16px", "letterSpacing": "0.04em"
             }),
-            html.Span("  ·  Pipeline ETL con PySpark · Arquitectura Medallion · Dash + Plotly",
-                      style={"color": TEXT_MUTED, "fontSize": "0.8rem"}),
-        ], style={
-            "textAlign": "center", "padding": "20px 0 8px",
-            "borderTop": f"1px solid {BORDER}", "marginTop": "8px"
-        }),
+
+            dbc.Row([
+                dbc.Col([
+                    html.H6("🗄️ Dataset", style={"color": BLUE, "fontWeight": "700"}),
+                    html.P([
+                        "Los datos provienen del dataset público ",
+                        html.Strong("IEEE-CIS Fraud Detection", style={"color": TEXT_MAIN}),
+                        " de Kaggle, con ",
+                        html.Strong("590.540 transacciones bancarias reales", style={"color": TEXT_MAIN}),
+                        " anonimizadas, recogidas entre diciembre 2017 y mayo 2018. "
+                        "El dataset incluye 394 columnas originales: importes, tipos de tarjeta, "
+                        "dominios de email, distancias entre direcciones y features de identidad del dispositivo."
+                    ], style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.7"}),
+
+                    html.H6("⚠️ Desbalanceo de clases", style={"color": BLUE, "fontWeight": "700", "marginTop": "16px"}),
+                    html.P(
+                        "Solo el 3,5% de las transacciones son fraude (20.663 casos). "
+                        "Este desbalanceo es representativo de la realidad bancaria y tiene implicaciones "
+                        "directas en el análisis: la métrica accuracy no es válida en estos casos. "
+                        "Las métricas relevantes son precision, recall y F1-score.",
+                        style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.7"}
+                    ),
+                ], xs=12, md=6, className="mb-4"),
+
+                dbc.Col([
+                    html.H6("⚙️ Pipeline ETL con Apache Spark", style={"color": BLUE, "fontWeight": "700"}),
+                    html.P(
+                        "El procesamiento de datos sigue una arquitectura Medallion de tres capas, "
+                        "estándar en plataformas de datos empresariales como Databricks o Azure Data Lake:",
+                        style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.7", "marginBottom": "8px"}
+                    ),
+                    html.Ul([
+                        html.Li([
+                            html.Strong("Bronze Layer: ", style={"color": TEXT_MAIN}),
+                            "Ingesta de los CSV originales (652MB + 25MB) a formato Parquet con compresión Snappy. "
+                            "Reducción del 88% en tamaño. Se añaden metadatos de auditoría (timestamp de ingesta, fichero origen)."
+                        ]),
+                        html.Li([
+                            html.Strong("Silver Layer: ", style={"color": TEXT_MAIN}),
+                            "Limpieza y transformación con PySpark: conversión de TransactionDT (entero) a timestamp real, "
+                            "tratamiento de nulos con criterio de negocio, eliminación de columnas irrelevantes (V1-V339) "
+                            "y LEFT JOIN entre transacciones e identidad. De 394 columnas a 15 columnas de negocio."
+                        ]),
+                        html.Li([
+                            html.Strong("Gold Layer: ", style={"color": TEXT_MAIN}),
+                            "Métricas de negocio calculadas con Spark SQL puro sobre 590k registros: "
+                            "fraude por hora, por tipo de tarjeta, por categoría de producto y evolución mensual."
+                        ]),
+                    ], style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.9", "paddingLeft": "18px"}),
+                ], xs=12, md=6, className="mb-4"),
+            ]),
+
+            dbc.Row([
+                dbc.Col([
+                    html.H6("📊 ¿Qué muestran las gráficas?", style={"color": BLUE, "fontWeight": "700"}),
+                    html.Ul([
+                        html.Li([
+                            html.Strong("Fraude por hora: ", style={"color": TEXT_MAIN}),
+                            "El fraude se concentra entre las 6h y las 9h de la madrugada, con picos del 11,5%. "
+                            "En esas horas el volumen de transacciones es mínimo pero los defraudadores actúan "
+                            "precisamente porque los usuarios no monitorizan sus cuentas."
+                        ]),
+                        html.Li([
+                            html.Strong("Fraude por tarjeta: ", style={"color": TEXT_MAIN}),
+                            "Las tarjetas de crédito triplican el fraude respecto a las de débito. "
+                            "Discover credit lidera con un 7,93% y un importe medio de fraude de 354$."
+                        ]),
+                        html.Li([
+                            html.Strong("Fraude por producto: ", style={"color": TEXT_MAIN}),
+                            "El producto C (micropagos, importe medio 43$) tiene el mayor % de fraude (11,69%). "
+                            "Es el patrón clásico de 'card testing': pequeñas transacciones para verificar "
+                            "que la tarjeta robada funciona antes de realizar cargos mayores."
+                        ]),
+                        html.Li([
+                            html.Strong("Evolución mensual: ", style={"color": TEXT_MAIN}),
+                            "Diciembre 2017 tiene el mayor volumen (campaña navideña, 137k transacciones) "
+                            "pero el menor porcentaje de fraude (2,59%), posiblemente por mayor vigilancia bancaria."
+                        ]),
+                    ], style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.9", "paddingLeft": "18px"}),
+                ], xs=12, md=6, className="mb-4"),
+
+                dbc.Col([
+                    html.H6("🛠️ Stack tecnológico", style={"color": BLUE, "fontWeight": "700"}),
+                    html.Ul([
+                        html.Li([html.Strong("PySpark 3.5.1", style={"color": TEXT_MAIN}), " — procesamiento distribuido y Spark SQL"]),
+                        html.Li([html.Strong("Arquitectura Medallion", style={"color": TEXT_MAIN}), " — Bronze / Silver / Gold"]),
+                        html.Li([html.Strong("Parquet + Snappy", style={"color": TEXT_MAIN}), " — almacenamiento columnar (88% de reducción vs CSV)"]),
+                        html.Li([html.Strong("Pandas + PyArrow", style={"color": TEXT_MAIN}), " — lectura eficiente de Gold para el dashboard"]),
+                        html.Li([html.Strong("Dash + Plotly", style={"color": TEXT_MAIN}), " — dashboard interactivo"]),
+                        html.Li([html.Strong("Docker + GitHub Actions", style={"color": TEXT_MAIN}), " — CI/CD automatizado"]),
+                        html.Li([html.Strong("Watchtower", style={"color": TEXT_MAIN}), " — actualización automática del contenedor en VPS"]),
+                        html.Li([html.Strong("Nginx", style={"color": TEXT_MAIN}), " — proxy inverso en producción"]),
+                    ], style={"color": TEXT_MUTED, "fontSize": "0.88rem", "lineHeight": "1.9", "paddingLeft": "18px"}),
+
+                    html.H6("🔗 Repositorio", style={"color": BLUE, "fontWeight": "700", "marginTop": "16px"}),
+                    html.A(
+                        "github.com/iflorido/spark-bigdata",
+                        href="https://github.com/iflorido/spark-bigdata",
+                        target="_blank",
+                        style={"color": BLUE, "fontSize": "0.88rem"}
+                    ),
+                ], xs=12, md=6, className="mb-4"),
+            ]),
+
+            # Footer final
+            html.Div([
+                html.Span("Desarrollado por ", style={"color": TEXT_MUTED, "fontSize": "0.8rem"}),
+                html.A("automaworks.es", href="https://automaworks.es", target="_blank",
+                       style={"color": BLUE, "fontSize": "0.8rem", "textDecoration": "none"}),
+                html.Span("  ·  Pipeline ETL con PySpark · Arquitectura Medallion · Dash + Plotly",
+                          style={"color": TEXT_MUTED, "fontSize": "0.8rem"}),
+            ], style={"textAlign": "center", "paddingTop": "20px", "borderTop": f"1px solid {BORDER}"}),
+
+        ], style={"marginTop": "8px"}),
 
     ], style={"padding": "24px 20px", "maxWidth": "1400px", "margin": "0 auto"}),
 
