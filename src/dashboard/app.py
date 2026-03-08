@@ -4,9 +4,15 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
+import os
 
 # Encontramos la raíz del proyecto y configuramos las rutas
 def find_project_root(start: Path) -> Path:
+    # Primero comprobamos variable de entorno (ideal para Docker)
+    env_root = os.environ.get("PROJECT_ROOT")
+    if env_root:
+        return Path(env_root)
+    # Si no, buscamos subiendo directorios (funciona en local)
     for parent in [start] + list(start.parents):
         if (parent / "README.md").exists() and (parent / "src").exists():
             return parent

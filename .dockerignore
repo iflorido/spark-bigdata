@@ -1,0 +1,23 @@
+# Datos raw y procesados (solo se necesita aggregated/)
+data/raw/
+data/processed/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Entornos
+.env
+*.egg-info/
+
+# Git
+.git/
+.gitignore
+
+# Notebooks (no necesarios en producción)
+notebooks/
+
+# macOS
+.DS_Store
