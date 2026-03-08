@@ -11,7 +11,8 @@ __pycache__/
 # Entornos
 .env
 *.egg-info/
-
+*.tar.gz
+*.tar
 # macOS
 .DS_Store.DS_Store
 **/.DS_Store
