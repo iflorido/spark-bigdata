@@ -1,12 +1,12 @@
 # 🏦 Financial Transactions Data Pipeline
 
-Pipeline ETL de análisis y detección de patrones en transacciones bancarias usando **PySpark**, **Spark SQL** y arquitectura **Medallion (Bronze/Silver/Gold)**.
+Pipeline ETL de análisis y detección de patrones en transacciones bancarias usando **PySpark**, **Spark SQL** y arquitectura **Medallion (Bronze/Silver/Gold)**, con dashboard interactivo desplegable en producción.
 
 ---
 
 ## 📋 Descripción del proyecto
 
-Este proyecto simula el trabajo real de un ingeniero de datos en el sector financiero: ingestar millones de transacciones bancarias, procesarlas con Apache Spark y dejarlas listas para análisis de negocio.
+Este proyecto simula el trabajo real de un ingeniero de datos en el sector financiero: ingestar millones de transacciones bancarias, procesarlas con Apache Spark y dejarlas listas para análisis de negocio, con un dashboard interactivo para visualización de métricas de fraude.
 
 El dataset utilizado es el **IEEE-CIS Fraud Detection** (Kaggle), con más de 590.000 transacciones reales anonimizadas.
 
@@ -20,6 +20,8 @@ El dataset utilizado es el **IEEE-CIS Fraud Detection** (Kaggle), con más de 59
 | Big Data | PySpark | 3.5.1 |
 | SQL | Spark SQL | 3.5.1 |
 | Almacenamiento | Parquet (columnar) | - |
+| Dashboard | Dash + Plotly | 4.0.0 / 6.6.0 |
+| UI Components | dash-bootstrap-components | 2.0.4 |
 | Entorno | Conda | modspark |
 | Runtime | Java (OpenJDK) | 11 |
 | Notebooks | Jupyter | - |
@@ -38,7 +40,7 @@ El dataset utilizado es el **IEEE-CIS Fraud Detection** (Kaggle), con más de 59
       ↓
 [Gold Layer]   → agregaciones y métricas de negocio con Spark SQL
       ↓
-[Análisis / Dashboard]
+[Dashboard Dash] → visualización interactiva desplegada en Docker + Nginx
 ```
 
 La arquitectura **Medallion** es el estándar en plataformas de datos modernas (Databricks, Azure, BBVA, Santander). Cada capa tiene una responsabilidad clara y los datos solo avanzan hacia adelante.
@@ -59,11 +61,12 @@ spark-bigdata/
 │   │   └── silver/
 │   │       └── transactions_enriched/  # Parquet Silver - join enriquecido
 │   └── aggregated/
-│       └── gold/                       # Parquet Gold - métricas de negocio
-│           ├── fraud_by_hour/
-│           ├── fraud_by_card/
-│           ├── fraud_by_product/
-│           └── fraud_by_month/
+│       └── gold/
+│           └── metrics/                # Parquet Gold - métricas de negocio
+│               ├── fraude_por_hora/
+│               ├── fraude_por_tipo_tarjeta/
+│               ├── fraude_por_categoria_producto/
+│               └── evolucion_mensual_fraudes/
 │
 ├── src/
 │   ├── __init__.py
@@ -71,11 +74,14 @@ spark-bigdata/
 │   │   └── bronze_loader.py            # Carga CSV → Parquet Bronze
 │   ├── etl/
 │   │   └── silver_transformer.py       # Transformaciones + join → Silver
-│   └── sql/
-│       └── gold_metrics.py             # Métricas de negocio con Spark SQL
+│   ├── sql/
+│   │   └── gold_metrics.py             # Métricas de negocio con Spark SQL
+│   └── dashboard/
+│       └── app.py                      # Dashboard Dash interactivo
 │
 ├── notebooks/
-│   └── 01_exploracion_inicial.ipynb
+│   ├── 01_exploracion_inicial.ipynb    # Exploración del dataset
+│   └── 02_visualizacion.ipynb          # Prototipado de gráficas
 │
 ├── .gitignore
 ├── requirements.txt
@@ -144,10 +150,7 @@ conda activate modspark
 ### 4. Instalar dependencias
 
 ```bash
-pip install pyspark==3.5.1
-pip install pandas
-pip install faker
-pip install jupyter
+pip install -r requirements.txt
 ```
 
 ### 5. Verificar instalación
@@ -178,8 +181,9 @@ python src/etl/silver_transformer.py
 # 3. Gold: calcular métricas de negocio
 python src/sql/gold_metrics.py
 
-# Exploración interactiva
-python -m notebook
+# 4. Dashboard: arrancar servidor local
+python src/dashboard/app.py
+# Abrir http://localhost:8050
 ```
 
 ---
@@ -282,14 +286,12 @@ python src/etl/silver_transformer.py
 
 **Responsabilidad**: calcular métricas de negocio sobre los datos Silver usando Spark SQL puro.
 
-El DataFrame Silver se registra como vista temporal SQL (`createOrReplaceTempView`) y se lanzan queries analíticas sobre 590k transacciones.
+El DataFrame Silver se registra como vista temporal SQL (`createOrReplaceTempView`) y se lanzan queries analíticas sobre 590k transacciones. Junio 2018 se excluye explícitamente por estar truncado en el dataset origen (solo 175 transacciones).
 
 **Ejecución:**
 ```bash
 python src/sql/gold_metrics.py
 ```
-
----
 
 ### Métrica 1 — Fraude por hora del día
 
@@ -303,8 +305,6 @@ python src/sql/gold_metrics.py
 
 > 💡 El fraude se concentra en las horas de madrugada (6-9h), cuando el tráfico es bajo y los usuarios no monitorizan sus cuentas. Es un patrón real conocido en banca.
 
----
-
 ### Métrica 2 — Fraude por tipo de tarjeta
 
 | Red | Tipo | Transacciones | % Fraude | Importe medio fraude |
@@ -316,8 +316,6 @@ python src/sql/gold_metrics.py
 | mastercard | debit | 138.415 | 2.16% | 127 $ |
 
 > 💡 Las tarjetas de crédito tienen el triple de fraude que las de débito. Discover credit lidera con el importe medio de fraude más alto (354$).
-
----
 
 ### Métrica 3 — Fraude por categoría de producto
 
@@ -331,20 +329,46 @@ python src/sql/gold_metrics.py
 
 > 💡 El producto C (micropagos) tiene el mayor % de fraude pero el importe más bajo — patrón típico de fraude de prueba: los defraudadores hacen pequeñas transacciones para verificar que la tarjeta funciona antes de hacer cargos grandes.
 
+### Métrica 4 — Evolución mensual del fraude (Dic 2017 - May 2018)
+
+| Periodo | Transacciones | % Fraude | Volumen total |
+|---|---|---|---|
+| 2017-12 | 137.321 | 2.59% | 17.6 M$ |
+| 2018-01 | 92.585 | 4.00% | 12.6 M$ |
+| 2018-02 | 86.021 | 4.01% | 11.9 M$ |
+| 2018-03 | 101.453 | 3.96% | 14.1 M$ |
+| 2018-04 | 83.636 | 3.38% | 11.2 M$ |
+| 2018-05 | 89.349 | 3.48% | 12.2 M$ |
+
+> 💡 Diciembre tiene el mayor volumen (campaña navideña) pero menor % de fraude. Junio 2018 excluido por estar truncado en el dataset origen.
+
 ---
 
-### Métrica 4 — Evolución mensual del fraude
+## 📈 Dashboard — `src/dashboard/app.py`
 
-| Mes | Transacciones | % Fraude | Volumen total |
-|---|---|---|---|
-| Enero | 92.585 | 4.00% | 12.6 M$ |
-| Febrero | 86.021 | 4.01% | 11.9 M$ |
-| Marzo | 101.453 | 3.96% | 14.1 M$ |
-| Abril | 83.636 | 3.38% | 11.2 M$ |
-| Mayo | 89.349 | 3.48% | 12.2 M$ |
-| Diciembre | 137.321 | 2.59% | 17.6 M$ |
+Dashboard interactivo construido con **Dash + Plotly** y tema oscuro profesional.
 
-> 💡 Diciembre tiene el mayor volumen (campaña navideña) pero menor % de fraude — posiblemente por mayor vigilancia bancaria en esas fechas. Junio solo tiene 175 transacciones: el dataset está truncado en ese mes.
+**Stack del dashboard:**
+- `Dash 4.0` — framework web para aplicaciones de datos
+- `Plotly 6.6` — gráficas interactivas
+- `dash-bootstrap-components` — tema DARKLY + layout responsivo
+- `Fuente Oxygen` (Google Fonts) — tipografía profesional
+- `PyArrow` — lectura directa de Parquet Gold sin necesidad de Spark
+
+**Componentes del dashboard:**
+- 4 KPI cards: total transacciones, total fraudes, % fraude global, importe medio
+- Gráfica de barras: % fraude por hora del día
+- Gráfica horizontal: % fraude por tipo de tarjeta
+- Scatter plot: fraude por producto (% fraude vs importe medio, tamaño = volumen)
+- Line chart: evolución mensual de transacciones vs fraudes
+
+**Arranque local:**
+```bash
+python src/dashboard/app.py
+# Dashboard disponible en http://localhost:8050
+```
+
+> 💡 El dashboard lee directamente los Parquet Gold con PyArrow+Pandas, sin necesidad de arrancar Spark. Los datos Gold son pequeños (métricas agregadas) y no requieren procesamiento distribuido para ser servidos.
 
 ---
 
@@ -356,8 +380,11 @@ python src/sql/gold_metrics.py
 - [x] Bronze Layer — ingesta CSV → Parquet con metadatos de auditoría
 - [x] Silver Layer — limpieza, transformación de fechas y join enriched
 - [x] Gold Layer — 4 métricas de negocio con Spark SQL
-- [ ] Notebook de visualización de resultados (gráficas)
-- [ ] Orquestación con Apache Airflow
+- [x] Notebook de visualización — prototipado de gráficas con Plotly
+- [x] Dashboard Dash — interfaz interactiva con tema oscuro
+- [ ] Dockerización — Dockerfile + docker-compose.yml
+- [ ] CI/CD — GitHub Actions → build → push a ghcr.io → deploy en VPS
+- [ ] Nginx — proxy inverso para el dashboard en producción
 
 ---
 
