@@ -49,9 +49,6 @@ PLOTLY_LAYOUT = dict(
     title_font=dict(family="Oxygen, sans-serif", color=TEXT_MAIN, size=15),
     margin=dict(l=16, r=16, t=48, b=16),
     coloraxis_showscale=False,
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_MUTED)),
-    xaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MUTED)),
-    yaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MUTED)),
 )
 
 # --- Gráfica 1: Fraude por hora ---
@@ -83,8 +80,15 @@ fig_tarjeta = px.bar(
 )
 
 fig_tarjeta.update_layout(
-    **PLOTLY_LAYOUT,
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Oxygen, sans-serif", color=TEXT_MUTED, size=12),
+    title_font=dict(family="Oxygen, sans-serif", color=TEXT_MAIN, size=15),
+    margin=dict(l=16, r=16, t=48, b=16),
+    coloraxis_showscale=False,
     title="% Fraude por tipo de tarjeta",
+    xaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MUTED)),
     yaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MAIN, size=11)),
 )
 fig_tarjeta.update_traces(textposition="outside", textfont=dict(color=TEXT_MUTED, size=11), marker_line_width=0)
@@ -123,8 +127,15 @@ fig_mensual.add_trace(go.Scatter(
     marker=dict(size=7, color=RED, line=dict(width=1, color=BG_CARD)),
 ))
 fig_mensual.update_layout(
-    **PLOTLY_LAYOUT,
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Oxygen, sans-serif", color=TEXT_MUTED, size=12),
+    title_font=dict(family="Oxygen, sans-serif", color=TEXT_MAIN, size=15),
+    margin=dict(l=16, r=16, t=48, b=16),
     title="Evolución mensual: transacciones vs fraudes",
+    xaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MUTED)),
+    yaxis=dict(gridcolor=BORDER, linecolor=BORDER, tickfont=dict(color=TEXT_MUTED)),
     legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_MUTED), orientation="h", y=1.12),
 )
 
